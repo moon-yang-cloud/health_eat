@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>健康外卖推荐 · 定位附近真实店铺</title>
+<style>
+  :root{
+    --green:#2e9e5b; --green-dark:#1f7a44; --bg:#f4f7f5; --card:#fff;
+    --text:#2b3a33; --muted:#7a8a82; --warn:#e8743b;
+    --protein:#2e9e5b; --carb:#e8743b; --fat:#d9b441;
+    --shadow:0 4px 20px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.5;padding-bottom:40px;}
+  header{background:linear-gradient(135deg,var(--green),var(--green-dark));color:#fff;padding:26px 20px 22px;text-align:center;}
+  header h1{font-size:21px;margin-bottom:5px;}
+  header p{font-size:13px;opacity:.9;}
+  .container{max-width:720px;margin:0 auto;padding:16px;}
+  .card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:18px;margin-bottom:16px;}
+
+  /* 配置提示卡 */
+  .setup{border:1.5px dashed #d7a13b;background:#fffaf0;}
+  .setup h3{font-size:15px;color:#a8501f;margin-bottom:8px;}
+  .setup ol{margin:8px 0 8px 20px;font-size:13px;color:#5a4a30;line-height:1.9;}
+  .setup code{background:#fff0d8;padding:1px 6px;border-radius:4px;font-size:12px;}
+  .setup a{color:var(--green-dark);font-weight:600;}
+
+  .loc-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  button.primary{background:var(--green);color:#fff;border:none;border-radius:10px;padding:12px 18px;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;}
+  button.primary:hover{background:var(--green-dark);}
+  button.primary:disabled{background:#b9c9c0;cursor:not-allowed;}
+  .loc-status{font-size:13px;color:var(--muted);flex:1;min-width:160px;}
+  .loc-status.ok{color:var(--green-dark);font-weight:600;}
+  .loc-status.err{color:var(--warn);}
+
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center;}
+  .goals{display:flex;gap:8px;flex-wrap:wrap;}
+  .goal-btn{border:1.5px solid #d7e3dc;background:#fff;color:var(--text);border-radius:20px;padding:7px 14px;font-size:13px;cursor:pointer;transition:all .15s;}
+  .goal-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+  .radius-sel{margin-left:auto;font-size:13px;color:var(--muted);}
+  .radius-sel select{font-size:13px;padding:6px 8px;border-radius:8px;border:1.5px solid #d7e3dc;background:#fff;}
+
+  /* 模式切换 + 美食筛选 */
+  .mode-tabs{display:flex;gap:8px;margin-top:14px;}
+  .mode-btn{flex:1;border:1.5px solid #d7e3dc;background:#fff;color:var(--text);border-radius:10px;padding:9px;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;}
+  .mode-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+  .panel{margin-top:12px;}
+  .filter-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .flabel{font-size:13px;color:var(--muted);white-space:nowrap;min-width:34px;}
+  #kwInput{flex:1;font-size:14px;padding:9px 11px;border:1.5px solid #d7e3dc;border-radius:10px;outline:none;}
+  #kwInput:focus{border-color:var(--green);}
+  .chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;}
+  .chip{font-size:12px;border:1.5px solid #d7e3dc;background:#fff;border-radius:16px;padding:5px 12px;cursor:pointer;transition:all .15s;}
+  .chip.active{background:var(--green);color:#fff;border-color:var(--green);}
+  .filter-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  .filter-grid > div{flex:1;min-width:90px;}
+  .filter-grid label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .filter-grid select{width:100%;font-size:13px;padding:8px;border-radius:8px;border:1.5px solid #d7e3dc;background:#fff;}
+  .food-search{width:100%;background:var(--green);color:#fff;border:none;border-radius:10px;padding:11px;font-size:15px;font-weight:600;cursor:pointer;}
+  .food-search:hover{background:var(--green-dark);}
+
+  .section-title{font-size:16px;font-weight:700;margin:8px 4px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .section-title .count{font-size:12px;color:var(--muted);font-weight:400;}
+
+  .dish{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:16px;margin-bottom:12px;}
+  .dish-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .dish-name{font-size:16px;font-weight:700;}
+  .dish-cat{font-size:11px;color:var(--muted);margin-top:3px;}
+  .dish-meta{font-size:12px;color:var(--muted);margin-top:3px;}
+  .dish-price{font-size:17px;font-weight:700;color:var(--warn);white-space:nowrap;text-align:right;}
+  .dish-price small{font-size:11px;color:var(--muted);font-weight:400;display:block;}
+  .dist-badge{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:#5a8;border-radius:8px;padding:2px 8px;margin-left:6px;}
+  .score-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:6px;color:#fff;}
+
+  .reason{font-size:13px;color:#4a5a52;background:#f0f7f2;border-radius:8px;padding:9px 11px;margin:12px 0;}
+  .reason.warn{background:#fdf0e9;color:#a8501f;}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;}
+  .tag{font-size:11px;background:#eaf3ee;color:var(--green-dark);padding:2px 8px;border-radius:6px;}
+  .tag.bad{background:#fbe4d8;color:#a8501f;}
+
+  .links{display:flex;gap:10px;margin-top:12px;}
+  .link-btn{flex:1;text-align:center;text-decoration:none;border-radius:10px;padding:10px;font-size:14px;font-weight:600;}
+  .link-amap{background:#0a7afe;color:#fff;}
+  .link-mt{background:#ffc300;color:#5a3d00;}
+
+  .hint{font-size:12px;color:var(--muted);text-align:center;margin:20px 0;line-height:1.7;}
+  .empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:14px;}
+  .loading{text-align:center;color:var(--muted);padding:30px;font-size:14px;}
+  .spinner{width:26px;height:26px;border:3px solid #d7e3dc;border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* 提示 toast */
+  #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:#2b3a33;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:all .25s;z-index:999;box-shadow:0 6px 24px rgba(0,0,0,.2);}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  button.link-btn{border:none;cursor:pointer;font-family:inherit;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🥗 健康外卖推荐</h1>
+  <p>定位附近真实店铺 · 按距离与营养智能筛选 · 远离纯碳水</p>
+</header>
+
+<div class="container">
+
+  <!-- 配置区：未填 Key 时显示 -->
+  <div class="card setup" id="setupCard" style="display:none">
+    <h3>⚙️ 首次使用：填入高德地图 Key（约5分钟）</h3>
+    <ol>
+      <li>打开 <a href="https://lbs.amap.com/" target="_blank" rel="noopener">高德开放平台 lbs.amap.com</a>，注册并登录。</li>
+      <li>进入「应用管理 → 我的应用 → 创建新应用」，再「添加 Key」，服务平台选 <code>Web端(JS API)</code>。</li>
+      <li>把拿到的 <code>Key</code> 和 <code>安全密钥(securityJsCode)</code> 填进 <code>index.html</code> 顶部的配置区，保存即可。</li>
+    </ol>
+    <p style="font-size:12px;color:#a8501f">提示：JS API 必须同时配置 Key 和安全密钥两项，缺一不可。</p>
+  </div>
+
+  <div class="card" id="mainCard">
+    <div class="loc-row">
+      <button class="primary" id="locateBtn">📍 定位并查找附近</button>
+      <div class="loc-status" id="locStatus">点击按钮：定位你的位置并搜索周边真实餐饮店</div>
+    </div>
+    <div class="mode-tabs">
+      <button class="mode-btn active" data-mode="health">🥗 健康优选</button>
+      <button class="mode-btn" data-mode="food">🍜 周边美食</button>
+    </div>
+
+    <!-- 健康模式 -->
+    <div class="panel" id="panelHealth">
+      <div class="controls">
+        <div class="goals">
+          <button class="goal-btn active" data-goal="balance">⚖️ 均衡</button>
+          <button class="goal-btn" data-goal="fatloss">🔥 减脂控碳</button>
+          <button class="goal-btn" data-goal="muscle">💪 增肌高蛋白</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 美食模式 -->
+    <div class="panel" id="panelFood" style="display:none">
+      <div class="filter-row">
+        <span class="flabel">想吃</span>
+        <input id="kwInput" type="text" placeholder="火锅 / 日料 / 面… 可不填" />
+      </div>
+      <div class="chips" id="kwChips">
+        <span class="chip" data-kw="火锅">火锅</span>
+        <span class="chip" data-kw="烧烤">烧烤</span>
+        <span class="chip" data-kw="日料">日料</span>
+        <span class="chip" data-kw="川菜">川菜</span>
+        <span class="chip" data-kw="面">面食</span>
+        <span class="chip" data-kw="米饭快餐">快餐</span>
+        <span class="chip" data-kw="海鲜">海鲜</span>
+        <span class="chip" data-kw="轻食沙拉">轻食</span>
+        <span class="chip" data-kw="甜品咖啡">甜品/咖啡</span>
+      </div>
+      <div class="filter-grid">
+        <div>
+          <label>口味</label>
+          <select id="spicySel">
+            <option value="any">不限</option>
+            <option value="no">不吃辣</option>
+            <option value="mild">微辣</option>
+            <option value="hot">爱吃辣</option>
+          </select>
+        </div>
+        <div>
+          <label>人数</label>
+          <select id="peopleSel">
+            <option value="1">1 人</option>
+            <option value="2" selected>2 人</option>
+            <option value="4">3-4 人</option>
+            <option value="8">5 人以上</option>
+          </select>
+        </div>
+        <div>
+          <label>时间</label>
+          <select id="mealSel">
+            <option value="auto">按当前时间</option>
+            <option value="breakfast">早餐</option>
+            <option value="lunch">午餐</option>
+            <option value="dinner">晚餐</option>
+            <option value="night">夜宵</option>
+          </select>
+        </div>
+      </div>
+      <button class="food-search" id="foodSearchBtn">🔍 按条件找附近</button>
+    </div>
+
+    <div class="controls" style="margin-top:12px">
+      <div class="radius-sel" style="margin-left:0">
+        范围
+        <select id="radiusSel">
+          <option value="1000">1 km</option>
+          <option value="2000">2 km</option>
+          <option value="3000" selected>3 km</option>
+          <option value="5000">5 km</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="hint">
+    店铺、距离来自高德地图真实数据；健康度由店铺类型/名称智能判断，价格为参考区间。<br>
+    美团/饿了么无公开"直达店铺"链接，故「美团外卖」按钮会复制店名并打开外卖网页，粘贴搜索即可。
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   ⬇⬇⬇  在这里填入你的高德 Key 和安全密钥  ⬇⬇⬇
+   申请地址：https://lbs.amap.com/  （服务平台选 Web端(JS API)）
+============================================================ */
+const AMAP_KEY = "926d17e89db105705901cf8c38be3e86";  // ← 你的 Key
+const AMAP_SECURITY_CODE = "0bca67138fe3eb9ca2d5ee23b95a048d";  // ← 填你的 安全密钥 securityJsCode
+/* ============================================================ */
+
+let userCenter = null;   // [lng, lat]
+let currentGoal = "balance";
+let lastPois = [];
+let mode = "health";     // health | food
+let filters = { keyword:"", spicy:"any", people:2, meal:"auto" };
+
+/* ---- 健康度关键词（命中即加分/减分） ---- */
+const HEALTHY = {
+  "沙拉":30,"轻食":30,"健身":28,"减脂":28,"低脂":28,"健康":18,"营养":14,
+  "蒸":16,"鸡胸":24,"粥":12,"汤":10,"蔬菜":20,"素食":22,"全麦":18,
+  "寿司":14,"日料":14,"刺身":18,"海鲜":12,"鱼":12,"牛肉":8,"豆腐":10,"关东煮":8
+};
+const UNHEALTHY = {
+  "炸":-30,"汉堡":-26,"披萨":-24,"薯":-20,"奶茶":-30,"甜品":-22,"蛋糕":-24,
+  "烘焙":-16,"面包":-14,"盖浇":-12,"盖饭":-12,"炒饭":-12,"烧烤":-16,"火锅":-12,
+  "麻辣烫":-6,"米线":-8,"拉面":-12,"螺蛳粉":-8,"煎饼":-12,"糖":-12,"卤":-4
+};
+
+function healthScore(poi){
+  const n = (poi.name||"") + " " + (poi.type||"");
+  let s = 0, hit = [], bad = [];
+  for(const k in HEALTHY){ if(n.includes(k)){ s += HEALTHY[k]; hit.push(k); } }
+  for(const k in UNHEALTHY){ if(n.includes(k)){ s += UNHEALTHY[k]; bad.push(k); } }
+  return { s, hit, bad };
+}
+
+/* 价格估算（参考区间） */
+function estPrice(poi){
+  const n = (poi.name||"") + (poi.type||"");
+  if(/沙拉|轻食|健身|减脂|低脂/.test(n)) return [25,45];
+  if(/寿司|日料|刺身|海鲜/.test(n)) return [40,80];
+  if(/火锅|烤肉|烧烤/.test(n)) return [60,120];
+  if(/咖啡|奶茶|甜品|蛋糕|面包|烘焙/.test(n)) return [15,35];
+  if(/粥|汤|面|米线|麻辣烫|快餐|盖|饭|馄饨|饺/.test(n)) return [15,30];
+  return [20,45];
+}
+
+/* 综合排序分：健康 + 距离（越近越好），按目标微调 */
+function rankScore(poi, goal){
+  const h = poi._health.s;
+  const distKm = (poi.distance||0)/1000;
+  let s = h - distKm * 8;                 // 每公里扣 8 分
+  if(goal === "fatloss") s += h * 0.5;     // 减脂更看重低碳水
+  if(goal === "muscle"){                   // 增肌偏好高蛋白类
+    const n = poi.name+poi.type;
+    if(/鸡胸|牛肉|鱼|海鲜|蛋|健身/.test(n)) s += 18;
+  }
+  return s;
+}
+
+/* ---- 美食模式：口味/时间识别 + 排序 ---- */
+const SPICY_RE = /川|湘|渝|麻辣|火锅|水煮|冒菜|香锅|烤鱼|椒麻|重庆|成都|江西|贵州|辣|椒/;
+function isSpicy(poi){ return SPICY_RE.test((poi.name||"")+(poi.type||"")); }
+
+function autoMeal(){
+  const h = new Date().getHours();
+  if(h >= 5 && h < 10) return "breakfast";
+  if(h >= 10 && h < 14) return "lunch";
+  if(h >= 14 && h < 21) return "dinner";
+  return "night";
+}
+const MEAL_RE = {
+  breakfast: /早餐|包子|粥|豆浆|肠粉|煎饼|油条|馄饨|烧麦|早点/,
+  night: /烧烤|夜宵|宵夜|串|大排档|麻辣烫|小吃|啤酒|烤串/,
+  lunch: /快餐|盖|饭|面|简餐|套餐/,
+  dinner: /餐厅|火锅|烤|菜馆|饭店|料理/
+};
+
+function rankFood(poi){
+  const n = (poi.name||"")+(poi.type||"");
+  const distKm = (poi.distance||0)/1000;
+  let s = 50 - distKm * 12;   // 美食模式更看重距离
+
+  // 关键词匹配（高德已按关键词搜，这里再加权命中）
+  if(filters.keyword && n.includes(filters.keyword)) s += 25;
+
+  // 口味
+  const spicy = isSpicy(poi);
+  if(filters.spicy === "no")   s += spicy ? -40 : 8;
+  if(filters.spicy === "mild") s += spicy ? -6 : 4;
+  if(filters.spicy === "hot")  s += spicy ? 22 : -4;
+
+  // 时间
+  const meal = filters.meal === "auto" ? autoMeal() : filters.meal;
+  if(MEAL_RE[meal] && MEAL_RE[meal].test(n)) s += 16;
+  if(meal === "breakfast" && /火锅|烧烤|烤肉/.test(n)) s -= 20;
+  if(meal === "night" && /早餐|包子|豆浆/.test(n)) s -= 15;
+
+  // 人数：火锅/烤肉等适合多人，2人以上加分；1人时快餐/面/小吃加分
+  if(filters.people >= 3 && /火锅|烤肉|烤鱼|海鲜|聚餐|烧烤/.test(n)) s += 12;
+  if(filters.people <= 1 && /快餐|面|粥|盖|饭|小吃|轻食|沙拉/.test(n)) s += 8;
+
+  return s;
+}
+
+function distText(m){
+  if(m == null) return "";
+  return m < 1000 ? Math.round(m)+" m" : (m/1000).toFixed(1)+" km";
+}
+function scoreColor(s){
+  if(s>=40) return "#2e9e5b";
+  if(s>=15) return "#7cb342";
+  if(s>=0) return "#d9b441";
+  return "#e8743b";
+}
+function goalLabel(g){ return {balance:"均衡",fatloss:"减脂控碳",muscle:"增肌高蛋白"}[g]; }
+
+/* ---------- 渲染 ---------- */
+function render(){
+  const wrap = document.getElementById("results");
+  if(!userCenter){ wrap.innerHTML = `<div class="empty">点击上方「定位并查找附近」开始 🍽️</div>`; return; }
+  if(lastPois.length === 0){ wrap.innerHTML = `<div class="empty">附近没搜到餐饮店，换个更大的范围再试试。</div>`; return; }
+
+  const list = lastPois
+    .map(p => ({ ...p, _rank: mode==="health" ? rankScore(p, currentGoal) : rankFood(p) }))
+    .sort((a,b) => b._rank - a._rank)
+    .slice(0, 25);
+
+  let title;
+  if(mode === "health"){
+    title = `附近健康优选（${goalLabel(currentGoal)}）`;
+  }else{
+    const meal = filters.meal==="auto" ? autoMeal() : filters.meal;
+    const mealTxt = {breakfast:"早餐",lunch:"午餐",dinner:"晚餐",night:"夜宵"}[meal];
+    const spicyTxt = {any:"口味不限",no:"不辣",mild:"微辣",hot:"重辣"}[filters.spicy];
+    title = `周边美食（${filters.keyword||"全部"}·${spicyTxt}·${filters.people}人·${mealTxt}）`;
+  }
+  let html = `<div class="section-title">${title}<span class="count">从周边 ${lastPois.length} 家真实店铺中筛选 · 按${mode==="health"?"健康度+距离":"匹配度+距离"}排序</span></div>`;
+
+  list.forEach(p => {
+    const per = estPrice(p);
+    const ppl = mode==="food" ? filters.people : 1;
+    const amapUrl = p.id ? `https://www.amap.com/place/${p.id}` : `https://www.amap.com/search?query=${encodeURIComponent(p.name)}`;
+    const cat = (p.type||"").split(";").pop() || "餐饮";
+
+    let badgeHtml = "", reason = "", tagsHtml = "", warn = false;
+
+    if(mode === "health"){
+      const h = p._health;
+      warn = h.s < 0;
+      const badge = Math.max(0, Math.min(99, Math.round(50 + h.s)));
+      badgeHtml = `<span class="score-badge" style="background:${scoreColor(h.s)}">健康分 ${badge}</span>`;
+      const tags = [];
+      h.hit.forEach(k => tags.push(`<span class="tag">${k}</span>`));
+      h.bad.forEach(k => tags.push(`<span class="tag bad">${k}</span>`));
+      tagsHtml = tags.length?`<div class="tags">${tags.join("")}</div>`:"";
+      if(warn) reason = `⚠️ 这类店偏油炸/高碳水（${h.bad.join("、")}），容易踩"碳水刺客"。要点就选清淡做法、多配菜、别加含糖饮料。`;
+      else if(h.s >= 25) reason = `✅ 高蛋白/轻食类，${h.hit.join("、")||"清淡"}方向，扛饿不囤脂，适合${goalLabel(currentGoal)}。`;
+      else reason = `🟡 中性选择，可以吃但注意搭配：优先蛋白质和蔬菜，主食减半。`;
+    }else{
+      const spicy = isSpicy(p);
+      const tags = [`<span class="tag">${spicy?"🌶 偏辣":"清淡"}</span>`];
+      if(filters.keyword && (p.name+p.type).includes(filters.keyword)) tags.push(`<span class="tag">${filters.keyword}</span>`);
+      tagsHtml = `<div class="tags">${tags.join("")}</div>`;
+      reason = `📍 距你 ${distText(p.distance)} · ${cat} · ${spicy?"口味偏辣":"口味较清淡"}${ppl>1?` · ${ppl}人合计约 ¥${per[0]*ppl}-${per[1]*ppl}`:""}。`;
+    }
+
+    const priceHtml = ppl>1
+      ? `¥${per[0]*ppl}-${per[1]*ppl}<small>${ppl}人预估</small>`
+      : `¥${per[0]}-${per[1]}<small>人均预估</small>`;
+
+    html += `
+    <div class="dish">
+      <div class="dish-head">
+        <div>
+          <div class="dish-name">${p.name}
+            <span class="dist-badge">${distText(p.distance)}</span>
+            ${badgeHtml}
+          </div>
+          <div class="dish-cat">${cat}</div>
+          <div class="dish-meta">${p.address||""}</div>
+        </div>
+        <div class="dish-price">${priceHtml}</div>
+      </div>
+      <div class="reason ${warn?'warn':''}">${reason}</div>
+      ${tagsHtml}
+      <div class="links">
+        <a class="link-btn link-amap" href="${amapUrl}" target="_blank" rel="noopener">高德看店/导航</a>
+        <button class="link-btn link-mt" data-name="${encodeURIComponent(p.name)}">美团外卖（复制店名）</button>
+      </div>
+    </div>`;
+  });
+
+  wrap.innerHTML = html;
+}
+
+/* ---------- 高德加载 ---------- */
+function loadAMap(){
+  return new Promise((resolve, reject) => {
+    if(window.AMap) return resolve();
+    window._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY_CODE };
+    const s = document.createElement("script");
+    s.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_KEY}&plugin=AMap.Geolocation,AMap.PlaceSearch`;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("高德脚本加载失败，请检查 Key 是否正确、网络是否正常"));
+    document.head.appendChild(s);
+  });
+}
+
+/* ---------- 定位 + 搜索 ---------- */
+const locBtn = document.getElementById("locateBtn");
+const locStatus = document.getElementById("locStatus");
+
+async function locateAndSearch(){
+  locBtn.disabled = true;
+  setStatus("正在加载高德地图…","");
+  try{
+    await loadAMap();
+  }catch(e){
+    setStatus(e.message, "err"); locBtn.disabled = false; return;
+  }
+
+  setStatus("定位中…请允许浏览器/网页获取位置","");
+  AMap.plugin("AMap.Geolocation", function(){
+    const geo = new AMap.Geolocation({ enableHighAccuracy:true, timeout:10000, GeoLocationFirst:true });
+    geo.getCurrentPosition(function(status, result){
+      if(status === "complete" && result.position){
+        userCenter = [result.position.lng, result.position.lat];
+        const addr = result.formattedAddress || `${result.position.lng.toFixed(4)}, ${result.position.lat.toFixed(4)}`;
+        setStatus(`📍 ${addr}`, "ok");
+        searchNearby();
+      }else{
+        // 定位失败：尝试用 IP 城市兜底
+        setStatus("精确定位失败，正在用网络城市定位兜底…","");
+        ipFallback();
+      }
+    });
+  });
+}
+
+function ipFallback(){
+  AMap.plugin("AMap.CitySearch", function(){
+    const cs = new AMap.CitySearch();
+    cs.getLocalCity(function(status, result){
+      if(status==="complete" && result.bounds){
+        const c = result.bounds.getCenter();
+        userCenter = [c.lng, c.lat];
+        setStatus(`📍 已按城市定位：${result.city}（精度较低，可在手机上重试精确定位）`, "ok");
+        searchNearby();
+      }else{
+        setStatus("定位失败，请检查定位权限或网络后重试。","err");
+        locBtn.disabled = false;
+      }
+    });
+  });
+}
+
+function searchNearby(){
+  const radius = parseInt(document.getElementById("radiusSel").value, 10);
+  const kw = mode === "food" ? (filters.keyword || "") : "";
+  document.getElementById("results").innerHTML = `<div class="loading"><div class="spinner"></div>正在搜索 ${radius/1000}km 内${kw?("的「"+kw+"」"):"的餐饮店"}…</div>`;
+  AMap.plugin("AMap.PlaceSearch", function(){
+    const ps = new AMap.PlaceSearch({ type:"餐饮服务", pageSize:50, pageIndex:1, extensions:"base" });
+    ps.searchNearBy(kw, userCenter, radius, function(status, result){
+      locBtn.disabled = false;
+      if(status === "complete" && result.poiList && result.poiList.pois){
+        lastPois = result.poiList.pois.map(p => {
+          const poi = {
+            id: p.id, name: p.name, type: p.type, address: p.address,
+            distance: p.distance != null ? p.distance : (p.distanceToCenter || null)
+          };
+          poi._health = healthScore(poi);
+          return poi;
+        });
+        render();
+      }else{
+        lastPois = [];
+        document.getElementById("results").innerHTML = `<div class="empty">附近没搜到餐饮店，换更大范围再试。</div>`;
+      }
+    });
+  });
+}
+
+function setStatus(t, cls){ locStatus.textContent = t; locStatus.className = "loc-status" + (cls?(" "+cls):""); }
+
+/* ---------- 事件 ---------- */
+locBtn.addEventListener("click", locateAndSearch);
+document.querySelectorAll(".goal-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".goal-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    currentGoal = btn.dataset.goal;
+    render();
+  });
+});
+document.getElementById("radiusSel").addEventListener("change", ()=>{
+  if(userCenter) searchNearby();
+});
+
+/* ---- 模式切换 ---- */
+document.querySelectorAll(".mode-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".mode-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    mode = btn.dataset.mode;
+    document.getElementById("panelHealth").style.display = mode==="health" ? "block" : "none";
+    document.getElementById("panelFood").style.display = mode==="food" ? "block" : "none";
+    if(userCenter) searchNearby();   // 切模式重新拉数据（关键词可能变化）
+  });
+});
+
+/* ---- 美食筛选控件 ---- */
+const kwInput = document.getElementById("kwInput");
+kwInput.addEventListener("input", ()=>{
+  filters.keyword = kwInput.value.trim();
+  document.querySelectorAll("#kwChips .chip").forEach(c=>c.classList.remove("active"));
+});
+document.querySelectorAll("#kwChips .chip").forEach(chip=>{
+  chip.addEventListener("click", ()=>{
+    const active = chip.classList.contains("active");
+    document.querySelectorAll("#kwChips .chip").forEach(c=>c.classList.remove("active"));
+    if(active){ filters.keyword = ""; kwInput.value = ""; }
+    else { chip.classList.add("active"); filters.keyword = chip.dataset.kw; kwInput.value = chip.textContent; }
+  });
+});
+document.getElementById("spicySel").addEventListener("change", e=>{ filters.spicy = e.target.value; if(userCenter) render(); });
+document.getElementById("peopleSel").addEventListener("change", e=>{ filters.people = parseInt(e.target.value,10); if(userCenter) render(); });
+document.getElementById("mealSel").addEventListener("change", e=>{ filters.meal = e.target.value; if(userCenter) render(); });
+document.getElementById("foodSearchBtn").addEventListener("click", ()=>{
+  if(!userCenter){ setStatus("请先点上方「定位并查找附近」获取位置","err"); return; }
+  searchNearby();
+});
+
+/* 美团外卖：复制店名 + 打开外卖网页 */
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>t.classList.remove("show"), 2600);
+}
+document.getElementById("results").addEventListener("click", function(e){
+  const btn = e.target.closest(".link-mt");
+  if(!btn) return;
+  const name = decodeURIComponent(btn.dataset.name || "");
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile|HarmonyOS/i.test(navigator.userAgent);
+  // 手机用外卖H5（可自动定位附近外卖）；电脑用主站（H5在桌面会被重置连接打不开）
+  const url = isMobile
+    ? "https://h5.waimai.meituan.com/waimai/mindex/home"
+    : "https://www.meituan.com/";
+  const open = () => window.open(url, "_blank", "noopener");
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(name).then(()=>{
+      showToast(`已复制「${name}」，在美团搜索框粘贴即可`);
+      open();
+    }).catch(()=>{ showToast("已打开美团外卖，请手动搜索店名"); open(); });
+  }else{
+    showToast("已打开美团外卖，请手动搜索店名"); open();
+  }
+});
+
+/* ---------- 启动检查 ---------- */
+(function init(){
+  if(!AMAP_KEY || !AMAP_SECURITY_CODE){
+    document.getElementById("setupCard").style.display = "block";
+    setStatus("请先在 index.html 顶部填入高德 Key 和安全密钥", "err");
+    locBtn.disabled = true;
+  }
+  render();
+})();
+</script>
+</body>
+</html>
