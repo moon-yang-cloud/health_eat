@@ -348,7 +348,9 @@ function render(){
   list.forEach(p => {
     const per = estPrice(p);
     const ppl = mode==="food" ? filters.people : 1;
-    const amapUrl = p.id ? `https://www.amap.com/place/${p.id}` : `https://www.amap.com/search?query=${encodeURIComponent(p.name)}`;
+    const amapUrl = p.location
+      ? `https://uri.amap.com/marker?position=${p.location[0]},${p.location[1]}&name=${encodeURIComponent(p.name)}&src=health_eat&coordinate=gaode&callnative=1`
+      : `https://www.amap.com/search?query=${encodeURIComponent(p.name)}`;
     const cat = (p.type||"").split(";").pop() || "餐饮";
 
     let badgeHtml = "", reason = "", tagsHtml = "", warn = false;
@@ -475,6 +477,7 @@ function searchNearby(){
         lastPois = result.poiList.pois.map(p => {
           const poi = {
             id: p.id, name: p.name, type: p.type, address: p.address,
+            location: (p.location && p.location.lng != null) ? [p.location.lng, p.location.lat] : null,
             distance: p.distance != null ? p.distance : (p.distanceToCenter || null)
           };
           poi._health = healthScore(poi);
